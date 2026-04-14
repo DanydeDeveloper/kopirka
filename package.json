@@ -8,9 +8,12 @@
     "start": "next start"
   },
   "dependencies": {
+    "@types/turndown": "^5.0.6",
+    "cheerio": "^1.2.0",
     "next": "16.2.3",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "turndown": "^7.2.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

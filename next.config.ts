@@ -1,7 +1,8 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Playwright must not be bundled — keep it as a Node.js native import
+  serverExternalPackages: ['playwright', 'playwright-core'],
 };
 
 export default nextConfig;
