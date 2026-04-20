@@ -85,15 +85,15 @@ export default function HomePage() {
 
         {/* Header */}
         <header className="mb-12 text-center">
-          <div className="inline-flex items-center gap-2.5 mb-3">
+              <div className="inline-flex items-center gap-2.5 mb-3">
             <span className="text-xl select-none">⚡</span>
             <h1 className="text-2xl font-bold tracking-tight text-zinc-50">
               Копирка
             </h1>
           </div>
           <p className="text-sm text-zinc-500 max-w-sm mx-auto leading-relaxed">
-            Paste any URL — get clean markdown, JSON, links, and an AI-ready
-            summary.
+            Paste a URL — get a Claude Code prompt to recreate the site as a
+            full Next.js project.
           </p>
         </header>
 
@@ -131,7 +131,7 @@ function EmptyState() {
         🔗
       </div>
       <p className="text-sm text-zinc-600">
-        Enter a URL above to extract its content.
+        Enter a URL to generate a clone prompt.
       </p>
     </div>
   );

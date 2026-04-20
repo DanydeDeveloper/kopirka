@@ -1,65 +1,134 @@
 import type { ScrapeResult } from './types';
 
 /**
- * Generates a ready-to-paste prompt for Claude / ChatGPT / any LLM.
- * The prompt instructs the model to recreate the page as working frontend code.
+ * Generates a Claude Code–ready prompt to recreate the scraped site as a Next.js project.
+ * Contains full design context, content, and structure so the model can reproduce
+ * the project functionally and visually without visiting the original URL.
  */
 export function generateClonePrompt(result: ScrapeResult): string {
+  const dc = result.designContext;
+
+  // --- Design section ---
+  const designLines: string[] = [];
+
+  if (dc.colorScheme !== 'unknown') {
+    designLines.push(`- Color scheme: **${dc.colorScheme}** mode`);
+  }
+  if (dc.themeColor) {
+    designLines.push(`- Brand/theme color: \`${dc.themeColor}\``);
+  }
+  if (dc.ogImageUrl) {
+    designLines.push(`- OG image (visual reference): ${dc.ogImageUrl}`);
+  }
+  if (dc.fontFamilies.length > 0) {
+    designLines.push(`- Fonts: ${dc.fontFamilies.join(', ')}`);
+  }
+  if (dc.tailwindDetected) {
+    designLines.push(`- CSS framework: **Tailwind CSS** (detected in original)`);
+  } else if (dc.bootstrapDetected) {
+    designLines.push(`- CSS framework: **Bootstrap** (detected in original)`);
+  }
+  if (dc.layoutType !== 'unknown') {
+    designLines.push(`- Layout pattern: ${dc.layoutType}`);
+  }
+  if (dc.cssVariables.length > 0) {
+    designLines.push(
+      `- CSS design tokens from original:\n${dc.cssVariables.map(v => `  \`${v.trim()}\``).join('\n')}`,
+    );
+  }
+  if (dc.primaryColors.length > 0) {
+    designLines.push(`- Inline colors found: ${dc.primaryColors.slice(0, 6).join(', ')}`);
+  }
+
+  const designBlock =
+    designLines.length > 0
+      ? designLines.join('\n')
+      : '_No design tokens detected — infer a clean, modern aesthetic from the content type._';
+
+  // --- Structure section ---
   const headingsBlock =
     result.headings.length > 0
       ? result.headings
-          .slice(0, 20)
-          .map((h) => `${'  '.repeat(h.level - 1)}- ${'#'.repeat(h.level)} ${h.text}`)
+          .slice(0, 30)
+          .map(h => `${'  '.repeat(h.level - 1)}- ${'#'.repeat(h.level)} ${h.text}`)
           .join('\n')
-      : '(no headings found)';
+      : '_No headings found._';
 
-  const internalLinks = result.links
-    .filter((l) => !l.isExternal)
-    .slice(0, 15)
-    .map((l) => `- [${l.text}](${l.href})`)
+  // Navigation links (internal only)
+  const navLinks = result.links
+    .filter(l => !l.isExternal)
+    .slice(0, 20)
+    .map(l => `- [${l.text}](${l.href})`)
     .join('\n');
 
-  // Truncate markdown to keep the prompt within typical LLM context limits
-  const MAX_CONTENT_CHARS = 6_000;
+  // --- Content section ---
+  const MAX_CONTENT_CHARS = 8_000;
   const contentBlock =
     result.markdown.length > MAX_CONTENT_CHARS
-      ? result.markdown.slice(0, MAX_CONTENT_CHARS) +
-        '\n\n... [content truncated for length]'
+      ? result.markdown.slice(0, MAX_CONTENT_CHARS) + '\n\n_[content truncated — include all visible text above]_'
       : result.markdown;
 
-  return `You are an expert frontend developer. Your task is to recreate the following webpage as clean, working code.
+  return `# Clone this website as a Next.js project
 
----
-
-## Source page
+## Source
 - **URL:** ${result.url}
 - **Title:** ${result.title}${result.description ? `\n- **Description:** ${result.description}` : ''}
-- **Word count:** ~${result.wordCount}
+- **Content size:** ~${result.wordCount} words
 
 ---
 
-## Page structure (headings)
+## Design context
+
+${designBlock}
+
+---
+
+## Page structure (headings hierarchy)
+
 ${headingsBlock}
 
-${internalLinks ? `## Internal navigation links\n${internalLinks}\n\n---\n` : ''}
+${navLinks ? `---\n\n## Navigation / internal links\n\n${navLinks}\n` : ''}
+---
+
 ## Full page content (markdown)
+
 ${contentBlock}
 
 ---
 
 ## Your task
 
-Create a **single, self-contained HTML file** that visually recreates this page.
+You are Claude Code. Create a **complete, runnable Next.js project** that recreates this website.
 
-Requirements:
-1. **Layout** — Match the visual hierarchy, spacing, and structure as closely as possible.
-2. **Typography** — Use a clean sans-serif font (system-ui or Inter). Preserve heading levels (h1–h4).
-3. **Content** — Include all headings, paragraphs, lists, code blocks, and links from the content above.
-4. **Links** — Keep all hrefs as-is (relative or absolute).
-5. **Responsive** — Must look good on desktop and mobile (use CSS flexbox/grid or media queries).
-6. **Style** — Embed all CSS in a \`<style>\` tag. No external CSS frameworks required, but you may use Tailwind CDN if it helps.
-7. **No placeholder text** — Use the actual content from the markdown above.
-8. **No JavaScript required** — Unless the original page clearly needed it for layout.
+### Stack
+- Next.js 14+ (App Router)
+- TypeScript
+- Tailwind CSS
+- No external data fetching — all content is hardcoded from the markdown above
 
-Output only the complete HTML file, starting with \`<!DOCTYPE html>\`.`.trim();
+### Requirements
+
+1. **Match the design** — use the color scheme, fonts, and layout pattern from the design context above. If dark mode was detected, implement it as the default. Recreate the visual hierarchy faithfully.
+
+2. **All content** — include every heading, paragraph, list, code block, and link from the markdown. Do not use placeholder or lorem ipsum text.
+
+3. **Project structure** — at minimum:
+   \`\`\`
+   app/
+     layout.tsx      ← fonts, metadata, global wrapper
+     page.tsx        ← main page content
+     globals.css     ← CSS variables / base styles
+   components/       ← Header, Footer, any reusable sections
+   tailwind.config.ts
+   \`\`\`
+
+4. **Responsive** — mobile-first, works on all screen sizes.
+
+5. **Runnable** — \`npm install && npm run dev\` must work with zero errors.
+
+6. **No placeholders** — if something can't be recreated (e.g. interactive maps, auth), replace it with a static representation and add a \`// TODO:\` comment.
+
+### Deliver
+
+Output all files needed to run the project. Start with \`package.json\`, then \`tailwind.config.ts\`, then \`app/layout.tsx\`, \`app/page.tsx\`, and any components. Each file should be clearly labeled with its path.`.trim();
 }

@@ -1,3 +1,16 @@
+export interface DesignContext {
+  themeColor?: string;
+  hasDarkMode: boolean;
+  colorScheme: 'dark' | 'light' | 'unknown';
+  primaryColors: string[];
+  cssVariables: string[];
+  fontFamilies: string[];
+  layoutType: string;
+  tailwindDetected: boolean;
+  bootstrapDetected: boolean;
+  ogImageUrl?: string;
+}
+
 export interface Link {
   text: string;
   href: string;
@@ -21,6 +34,7 @@ export interface ScrapeResult {
   wordCount: number;
   fetchedAt: string;
   usedPlaywright: boolean;
+  designContext: DesignContext;
 }
 
 export type ScrapeErrorCode =

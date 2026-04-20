@@ -1,5 +1,5 @@
 import { load } from 'cheerio';
-import type { Heading, Link } from './types';
+import type { DesignContext, Heading, Link } from './types';
 
 export interface ExtractedContent {
   title: string;
@@ -8,6 +8,7 @@ export interface ExtractedContent {
   textContent: string;
   headings: Heading[];
   links: Link[];
+  designContext: DesignContext;
 }
 
 const NOISE_SELECTORS = [
@@ -58,6 +59,9 @@ const NOISE_SELECTORS = [
 export function extractContent(html: string, pageUrl: string): ExtractedContent {
   const $ = load(html);
 
+  // Extract design context BEFORE removing styles
+  const designContext = extractDesignContext($);
+
   // Strip noise first
   $(NOISE_SELECTORS).remove();
 
@@ -95,7 +99,81 @@ export function extractContent(html: string, pageUrl: string): ExtractedContent 
     .replace(/\s+/g, ' ')
     .trim();
 
-  return { title, description, mainHtml, textContent, headings, links };
+  return { title, description, mainHtml, textContent, headings, links, designContext };
+}
+
+function extractDesignContext($: ReturnType<typeof load>): DesignContext {
+  // Theme color + og:image
+  const themeColor = $('meta[name="theme-color"]').attr('content');
+  const ogImageUrl = $('meta[property="og:image"]').attr('content');
+
+  // Dark mode detection
+  const htmlAttrs = ($('html').attr('class') ?? '') + ' ' + ($('html').attr('data-theme') ?? '') + ' ' + ($('body').attr('class') ?? '');
+  const hasDarkMode = /\bdark\b/.test(htmlAttrs);
+  const metaColorScheme = $('meta[name="color-scheme"]').attr('content') ?? '';
+  const colorScheme: DesignContext['colorScheme'] =
+    hasDarkMode || metaColorScheme.includes('dark') ? 'dark'
+    : metaColorScheme.includes('light') ? 'light'
+    : 'unknown';
+
+  // CSS variables (colors) from style tags
+  const cssVariables: string[] = [];
+  $('style').each((_, el) => {
+    const css = $(el).text();
+    const vars = css.match(/--[\w-]+\s*:\s*(#[0-9a-fA-F]{3,8}|rgb[a]?\([^)]+\)|hsl[a]?\([^)]+\))/g) ?? [];
+    cssVariables.push(...vars.slice(0, 8));
+  });
+
+  // Inline colors from style attributes
+  const inlineColors: string[] = [];
+  $('[style]').each((_, el) => {
+    const style = $(el).attr('style') ?? '';
+    const matches = style.match(/#[0-9a-fA-F]{3,8}|rgb[a]?\([^)]+\)/g) ?? [];
+    inlineColors.push(...matches);
+  });
+  const primaryColors = [...new Set(inlineColors)].slice(0, 8);
+
+  // Font detection
+  const fontFamilies: string[] = [];
+  $('link[href*="fonts.googleapis.com"]').each((_, el) => {
+    const href = $(el).attr('href') ?? '';
+    const match = href.match(/family=([^&:]+)/);
+    if (match) fontFamilies.push(decodeURIComponent(match[1]).replace(/\+/g, ' ').split(':')[0]);
+  });
+  $('style').each((_, el) => {
+    const css = $(el).text();
+    const matches = css.match(/font-family\s*:\s*['"]?([^'",;\n]{2,40})/g) ?? [];
+    for (const m of matches.slice(0, 3)) {
+      const name = m.replace(/font-family\s*:\s*/i, '').replace(/['"]/g, '').trim();
+      if (name && !fontFamilies.includes(name)) fontFamilies.push(name);
+    }
+  });
+
+  // Framework detection
+  const allClasses = $('[class]').map((_, el) => $(el).attr('class') ?? '').get().join(' ');
+  const tailwindDetected = /\b(flex|grid|px-\d|py-\d|bg-\w|text-\w|rounded|border-|shadow-|hover:|focus:)\w/.test(allClasses);
+  const bootstrapDetected = /\b(container|row|col-\d|btn-|navbar|card|modal)\b/.test(allClasses);
+
+  // Layout type detection (before noise removal)
+  let layoutType = 'unknown';
+  if ($('[class*="hero"], .hero, #hero').length > 0) layoutType = 'landing-page';
+  else if ($('aside, [class*="sidebar"]').length > 0) layoutType = 'sidebar-layout';
+  else if ($('article').length > 0) layoutType = 'article';
+  else if ($('[class*="grid"]').length > 0) layoutType = 'grid-layout';
+  else if ($('nav, header').length > 0) layoutType = 'standard-page';
+
+  return {
+    themeColor,
+    ogImageUrl,
+    hasDarkMode,
+    colorScheme,
+    primaryColors,
+    cssVariables: cssVariables.slice(0, 12),
+    fontFamilies: [...new Set(fontFamilies)].slice(0, 5),
+    layoutType,
+    tailwindDetected,
+    bootstrapDetected,
+  };
 }
 
 function findMainContent($: ReturnType<typeof load>): ReturnType<typeof $> {

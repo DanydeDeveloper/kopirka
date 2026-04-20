@@ -1,33 +1,16 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { ScrapeResult } from '@/lib/types';
 import { generateClonePrompt } from '@/lib/clone-prompt';
-import MarkdownTab from './tabs/MarkdownTab';
-import JsonTab from './tabs/JsonTab';
-import SummaryTab from './tabs/SummaryTab';
-import LinksTab from './tabs/LinksTab';
-import CloneTab from './tabs/CloneTab';
+import ClonePanel from './ClonePanel';
 
 interface Props {
   result: ScrapeResult;
   onClear: () => void;
 }
 
-const TABS = [
-  { id: 'markdown', label: 'Markdown' },
-  { id: 'json',     label: 'JSON' },
-  { id: 'summary',  label: 'Summary' },
-  { id: 'links',    label: 'Links' },
-  { id: 'clone',    label: 'Clone ✦' },
-] as const;
-
-type TabId = (typeof TABS)[number]['id'];
-
 export default function ResultPanel({ result, onClear }: Props) {
-  const [activeTab, setActiveTab] = useState<TabId>('markdown');
-
-  // Memoised so the prompt isn't regenerated on every render
   const clonePrompt = useMemo(() => generateClonePrompt(result), [result]);
 
   return (
@@ -59,41 +42,9 @@ export default function ResultPanel({ result, onClear }: Props) {
         </div>
       </div>
 
-      {/* Tab bar */}
-      <div className="flex border-b border-zinc-800/60 px-4 overflow-x-auto">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-3 py-3 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
-              activeTab === tab.id
-                ? tab.id === 'clone'
-                  ? 'border-indigo-400 text-indigo-300'
-                  : 'border-indigo-500 text-zinc-100'
-                : tab.id === 'clone'
-                ? 'border-transparent text-indigo-500/70 hover:text-indigo-400'
-                : 'border-transparent text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            {tab.label}
-            {tab.id === 'links' && (
-              <span className="ml-1.5 text-[11px] text-zinc-700">
-                {result.links.length}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab content */}
+      {/* Clone panel */}
       <div className="p-4">
-        {activeTab === 'markdown' && <MarkdownTab markdown={result.markdown} />}
-        {activeTab === 'json'     && <JsonTab result={result} />}
-        {activeTab === 'summary'  && <SummaryTab summary={result.summary} />}
-        {activeTab === 'links'    && <LinksTab links={result.links} />}
-        {activeTab === 'clone'    && (
-          <CloneTab prompt={clonePrompt} sourceUrl={result.url} />
-        )}
+        <ClonePanel prompt={clonePrompt} result={result} />
       </div>
     </div>
   );

@@ -73,6 +73,7 @@ export async function POST(request: Request) {
     wordCount: countWords(extracted.textContent),
     fetchedAt: new Date().toISOString(),
     usedPlaywright: fetchResult.usedPlaywright,
+    designContext: extracted.designContext,
   };
 
   return Response.json(result);
